@@ -2,6 +2,7 @@ import { FiEdit2, FiLogOut, FiBell, FiLink, FiCpu, FiShield } from "react-icons/
 import { motion } from "framer-motion";
 import { PageShell } from "../components/ui/PageShell";
 import { InfoCard } from "../components/ui/InfoCard";
+import { EnablePushButton } from "../components/ui/EnablePushButton";
 import React from "react";
 import type { Page } from "@/types/pages";
 
@@ -81,6 +82,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onPageChange }) 
               <FiLogOut /> Выйти
             </button>
           </div>
+
+          <EnablePushButton userId={user?.id} />
 
           {/* Статистика */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">

@@ -15,6 +15,7 @@ model User {
   password    String
   sessions    Session[]
   resets      PasswordResetToken[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Session {
@@ -34,4 +35,19 @@ model PasswordResetToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

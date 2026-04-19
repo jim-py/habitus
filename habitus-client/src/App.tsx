@@ -10,6 +10,7 @@ import PomodoroPage from "@/pages/PomodoroPage";
 import { ProfileContainer } from "@/context/ProfileContainer";
 import { SectionPage } from "@/pages/SectionPage";
 import { HabitusSection } from "@/features/habitus/HabitusSection";
+import { registerSW } from "./pwa/registerSW";
 
 import type { Page } from "@/types/pages";
 
@@ -180,6 +181,10 @@ function AnimatedSteps() {
   );
 }
 export function App() {
+  useEffect(() => {
+    registerSW();
+  }, []);
+  
   const storedState = readStoredState();
 
   const [user, setUser] = useState<any | null>(null);

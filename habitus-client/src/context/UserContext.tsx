@@ -25,8 +25,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        console.log("Auth check response:");
-        // credentials: "include" чтобы cookie сессии уходили на сервер
         const res = await fetch("/api/auth/me", { credentials: "include" });
 
         if (!res.ok) throw new Error("Не авторизован");

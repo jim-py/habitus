@@ -2,16 +2,15 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
-import { prisma } from "./db/prisma";
+import app from "./app.js";
+import { prisma } from "./db/prisma.js";
 import { IncomingMessage } from 'http';
 import {
   generateSessionToken,
   hashPassword,
   hashToken,
   verifyPassword,
-} from "./auth/auth";
-
-const app = express();
+} from "./auth/auth.js";
 
 app.use(
   cors({
@@ -195,7 +194,9 @@ app.get("/api/auth/me", async (req, res) => {
       user: {
         id: session.user.id,
         username: session.user.username,
-        email: session.user.email
+        email: session.user.email,
+        displayName: session.user.displayName ?? null,
+        avatarUrl: session.user.avatarUrl ?? null,
       },
     });
   } catch {
