@@ -2,9 +2,14 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import https from "https";
+import { fileURLToPath } from "url";
+import type { IncomingMessage } from "http";
+
 import app from "./app.js";
 import { prisma } from "./db/prisma.js";
-import { IncomingMessage } from 'http';
 import {
   generateSessionToken,
   hashPassword,
@@ -12,12 +17,23 @@ import {
   verifyPassword,
 } from "./auth/auth.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const CERT_DIR = path.resolve(__dirname, "../certs");
+const CERT_KEY_PATH = path.join(CERT_DIR, "192.168.3.63-key.pem");
+const CERT_PEM_PATH = path.join(CERT_DIR, "192.168.3.63.pem");
+
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: [
+      "https://192.168.3.63:5173",
+      "https://localhost:5173",
+    ],
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.post("/api/auth/register", async (req, res) => {
@@ -67,14 +83,15 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.cookie("session", token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 1000 * 60 * 60 * 24 * 30,
     });
 
     return res.status(201).json({ message: "Регистрация успешна" });
-  } catch {
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
     return res.status(500).json({ message: "Ошибка сервера" });
   }
 });
@@ -86,12 +103,10 @@ app.post("/api/auth/login", async (req, res) => {
       password?: string;
     };
 
-    // 1. Валидация
     if (!username || !password) {
       return res.status(400).json({ message: "Заполните все поля" });
     }
 
-    // 2. Ищем пользователя по username
     const user = await prisma.user.findUnique({
       where: { username },
     });
@@ -100,14 +115,12 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ message: "Неверное имя пользователя или пароль" });
     }
 
-    // 3. Проверяем пароль
     const ok = await verifyPassword(user.password, password);
 
     if (!ok) {
       return res.status(401).json({ message: "Неверное имя пользователя или пароль" });
     }
 
-    // 4. Создаём сессию
     const token = generateSessionToken();
     const tokenHash = hashToken(token);
 
@@ -115,20 +128,18 @@ app.post("/api/auth/login", async (req, res) => {
       data: {
         userId: user.id,
         tokenHash,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30), // 30 дней
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       },
     });
 
-    // 5. Ставим cookie
     res.cookie("session", token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 1000 * 60 * 60 * 24 * 30,
     });
 
-    // 6. Ответ
     return res.json({ message: "Вход выполнен" });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
@@ -158,11 +169,12 @@ app.post("/api/auth/forgot", async (req, res) => {
         },
       });
 
-      // Тут позже подключишь отправку письма
+      // здесь позже добавишь отправку письма
     }
 
     return res.json({ message: "Если email существует, ссылка отправлена" });
-  } catch {
+  } catch (err) {
+    console.error("FORGOT ERROR:", err);
     return res.status(500).json({ message: "Ошибка сервера" });
   }
 });
@@ -170,16 +182,13 @@ app.post("/api/auth/forgot", async (req, res) => {
 app.get("/api/auth/me", async (req, res) => {
   try {
     const cookies = parseCookies(req);
-    const token = cookies['session'];
-    
+    const token = cookies.session;
+
     if (!token) {
       return res.status(401).json({ user: null });
     }
 
     const tokenHash = hashToken(token);
-
-    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-    await delay(500);
 
     const session = await prisma.session.findUnique({
       where: { tokenHash },
@@ -199,7 +208,8 @@ app.get("/api/auth/me", async (req, res) => {
         avatarUrl: session.user.avatarUrl ?? null,
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("ME ERROR:", err);
     return res.status(500).json({ user: null });
   }
 });
@@ -207,7 +217,7 @@ app.get("/api/auth/me", async (req, res) => {
 app.post("/api/auth/logout", async (req, res) => {
   try {
     const cookies = parseCookies(req);
-    const token = cookies["session"];
+    const token = cookies.session;
 
     if (!token) {
       return res.status(401).json({ message: "Сессия не найдена" });
@@ -215,15 +225,13 @@ app.post("/api/auth/logout", async (req, res) => {
 
     const tokenHash = hashToken(token);
 
-    // Удаляем сессию из базы
     await prisma.session.deleteMany({
       where: { tokenHash },
     });
 
-    // Сбрасываем куки
     res.cookie("session", "", {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 0,
@@ -237,16 +245,23 @@ app.post("/api/auth/logout", async (req, res) => {
 });
 
 function parseCookies(req: IncomingMessage) {
-  const raw = req.headers.cookie || '';
-  return raw.split(';').reduce<Record<string, string>>((acc, cookie) => {
-    const [key, ...vals] = cookie.split('=');
-    acc[key.trim()] = vals.join('=').trim();
+  const raw = req.headers.cookie || "";
+  return raw.split(";").reduce<Record<string, string>>((acc, cookie) => {
+    const [key, ...vals] = cookie.split("=");
+    const name = key.trim();
+    if (!name) return acc;
+    acc[name] = vals.join("=").trim();
     return acc;
   }, {});
 }
 
 const port = Number(process.env.PORT ?? 3000);
 
-app.listen(port, "0.0.0.0", () => {
-  console.log(`Auth API running on http://localhost:${port}`);
+const httpsOptions = {
+  key: fs.readFileSync(CERT_KEY_PATH),
+  cert: fs.readFileSync(CERT_PEM_PATH),
+};
+
+https.createServer(httpsOptions, app).listen(port, "0.0.0.0", () => {
+  console.log(`Auth API running on https://192.168.3.63:${port}`);
 });

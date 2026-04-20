@@ -24,7 +24,7 @@ export async function subscribePush(userId: string) {
     ),
   });
 
-  await fetch("http://localhost:3000/push/subscribe", {
+  await fetch("https://192.168.3.63:3000/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, subscription }),

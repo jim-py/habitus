@@ -21,7 +21,7 @@ export async function sendPushToAll() {
 
     try {
 
-      const result = await webpush.sendNotification(
+      await webpush.sendNotification(
         subscription,
         JSON.stringify({
           title: "Habitus",
@@ -30,6 +30,7 @@ export async function sendPushToAll() {
       );
 
     } catch (err: any) {
+      console.error("Error sending push notification:", err);
     }
   }
 }

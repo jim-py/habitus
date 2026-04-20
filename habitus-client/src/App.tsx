@@ -13,6 +13,7 @@ import { HabitusSection } from "@/features/habitus/HabitusSection";
 import { registerSW } from "./pwa/registerSW";
 
 import type { Page } from "@/types/pages";
+import { ToastContainer } from "./components/ui/ToastContainer";
 
 const STORAGE_KEY = "app-state:v2";
 
@@ -338,6 +339,8 @@ export function App() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f5f5] text-[#11151c] transition-colors duration-300 dark:bg-[#0b0d10] dark:text-[#e0e0e0]">
+      <ToastContainer />
+      
       <Navbar loggedIn={loggedIn} currentPage={page} onNavigate={handleNavigate} />
 
       <AnimatePresence mode="wait" initial={false}>
